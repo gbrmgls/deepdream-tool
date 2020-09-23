@@ -1,37 +1,73 @@
-import requests, os, pathlib
+import requests, os, argparse
+parser = argparse.ArgumentParser()
 
-# image_path = 'https://www.ahnegao.com.br/wp-content/uploads/2020/09/MEME-2-14.jpg'
-image_path = os.path.join(r'D:\arquivo\Projetos\Software\deepdream-tool\imagens\download.jpg')
-directory_path = pathlib.Path(r'D:\arquivo\Projetos\Software\deepdream-tool\imagens')
-api_key = '2972167e-46f4-4660-8c35-538f065ccc70'
-mode = 'local'
-iterations = 2
-images_in_folder = []
+parser.add_argument("-img", "--image-path", dest="image_path", help="Image url")
+parser.add_argument("-d", "--directory-path", dest="directory_path", help="Image path")
+parser.add_argument("-a", "--api-key", dest="api_key", help="API key")
+parser.add_argument("-m", "--mode", dest="mode", help="Mode (local or remote)")
+parser.add_argument("-it", "--iterations", dest="iterations", help="Number of iterations", type=int)
 
-for root, subdirs, files in os.walk(directory_path):
-    for file in files:
-        p = pathlib.Path(root, file)
-        images_in_folder.append(p)
+args = parser.parse_args()
+
+image_path = args.image_path
+directory_path = args.directory_path
+api_key = args.api_key
+mode = args.mode
+iterations = args.iterations
+
+def download_images_to_folder(urls, filenames):
+    for url, filename in zip(urls, filenames):
+        filename = filename.split('.')
+        filename = ('_dream.').join(filename)
+        r = requests.get(url, allow_redirects=True)
+        if not os.path.exists('dream'):
+            os.mkdir('dream')
+        open(os.path.join(r'dream', filename), 'wb').write(r.content)
+
+def get_images_from_folder(folder):
+    images_in_folder = []
+    for root, subdirs, files in os.walk(folder):
+        for file in files:
+            images_in_folder.append(file)
+    return images_in_folder
 
 def dreamify(mode, image_path, api_key):
-    r = requests.post(
-        "https://api.deepai.org/api/deepdream",
-        data={
-            'image': (open(str(image_path), 'rb') if mode == 'local' else str(image_path)),
-        },
-        headers={'api-key': str(api_key)}
-    )
-    print(r.json())
-    return r.json()['output_url']
+    if mode == 'local':
+        r = requests.post(
+            "https://api.deepai.org/api/deepdream",
+            files={
+                'image': open(str(image_path), 'rb'),
+            },
+            data={
+                'image': str(image_path),
+            },
+            headers={'api-key': str(api_key)}
+        )
+    elif mode == 'remote':
+        r = requests.post(
+            "https://api.deepai.org/api/deepdream",
+            data={
+                'image': str(image_path),
+            },
+            headers={'api-key': str(api_key)}
+        )
+    try:
+        return r.json()['output_url']
+    except:
+        return r.json()
 
-def dreamify_loop(iterations, mode, image_path, api_key):
-    for i in range(iterations): 
-        image_path = dreamify(mode, image_path, api_key)
-        print(i,":", image_path)
-    return(image_path)
+def dreamify_loop(mode, image, api_key, iterations=1):
+    for iteration in range(iterations): 
+        image = dreamify(mode, image, api_key)
+        mode = 'remote'
+        print(f'{iteration} iteration: {image}')
+    return(image)
 
-# map(lambda x: dreamify_loop(iterations, mode, (directory_path / x), api_key), images_in_folder,)
-
-# print(list(map(lambda x: dreamify_loop(iterations, mode, x, api_key), images_in_folder,)))
-# print(list(map(lambda x: print(iterations, mode, x, api_key), images_in_folder,)))
-print(dreamify_loop(iterations, mode, image_path, api_key))
+if mode == 'local':
+    images_to_process = get_images_from_folder(directory_path)
+    dreamified_images_urls = list(map(lambda x: dreamify_loop(mode, (os.path.join(directory_path, x)), api_key, iterations), images_to_process))
+    download_images_to_folder(dreamified_images_urls, images_to_process)
+elif mode == 'remote':
+    image_to_process = image_path
+    dreamified_image_url = dreamify_loop(mode, image_to_process, api_key, iterations)
+    download_images_to_folder([dreamified_image_url], ["image.jpg"])
