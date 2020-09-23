@@ -1,10 +1,9 @@
 import requests, os, argparse
 parser = argparse.ArgumentParser()
 
-parser.add_argument("-img", "--image-path", dest="image_path", help="Image url")
+parser.add_argument("-img", "--image-url", dest="image_path", help="Image url")
 parser.add_argument("-d", "--directory-path", dest="directory_path", help="Image path")
 parser.add_argument("-a", "--api-key", dest="api_key", help="API key")
-parser.add_argument("-m", "--mode", dest="mode", help="Mode (local or remote)")
 parser.add_argument("-it", "--iterations", dest="iterations", help="Number of iterations", type=int)
 
 args = parser.parse_args()
@@ -12,8 +11,8 @@ args = parser.parse_args()
 image_path = args.image_path
 directory_path = args.directory_path
 api_key = args.api_key
-mode = args.mode
 iterations = args.iterations
+mode = 'local' if directory_path else 'remote'
 
 def download_images_to_folder(urls, filenames):
     for url, filename in zip(urls, filenames):
